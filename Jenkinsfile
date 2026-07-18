@@ -1,30 +1,43 @@
 pipeline {
     agent any
 
+    environment {
+        IMAGE_NAME = "pqholmes/flask-app:latest"
+    }
+
     stages {
 
-        stage('Build') {
+        stage('Checkout') {
             steps {
-                echo 'Building the application...'
+                checkout scm
             }
         }
 
-        stage('Test') {
+        stage('Build Docker Image') {
             steps {
-                echo 'Running application tests...'
+                sh 'docker build -t $IMAGE_NAME .'
             }
         }
 
-        stage('Deploy') {
+        stage('Push to Docker Hub') {
             steps {
-                echo 'Deploying the application...'
+                withCredentials([usernamePassword(
+                    credentialsId: 'dockerhub',
+                    usernameVariable: 'DOCKER_USER',
+                    passwordVariable: 'DOCKER_PASS'
+                )]) {
+                    sh '''
+                        echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
+                        docker push $IMAGE_NAME
+                    '''
+                }
             }
         }
     }
 
     post {
         success {
-            echo 'Pipeline completed successfully!'
+            echo 'Docker image built and pushed successfully!'
         }
 
         failure {
